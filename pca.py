@@ -326,59 +326,185 @@ def pesq(clean, degraded, sr):
     pesq_score = max(0, 4.5 - symmetrical_distortion)  # 4.5 is the max PESQ score
     
     return symmetrical_distortion
+
+
+### RAIN ###
 import pandas as pd
 import os
-noise_folder = "D:/Cubase/output/duy_noise/"
-raw_folder =  "D:/Cubase/output/duy_raw/"
-threshold = 0.04
+noise_folder = "noise_rain/"
+raw_folder =  "clean_rain/"
 data = []
 method = 'pca'
+for threshold in np.arange(0.001, 0.01, 0.002):
+    threshold = round(threshold,3)
+    print(threshold)
+    for f in sorted(os.listdir(noise_folder))[:20]:
+        if f.endswith(('wav', 'mp3')):
+            noise_path = os.path.join(noise_folder, f)
+            print(noise_path)
+            sequence, sr = librosa.load(noise_path, sr=None)
+            # Define the duration to slice (1 minute)
+            duration = 2 * 10 * sr # 10s in milliseconds
 
-for f in sorted(os.listdir(noise_folder))[:]:
-    if f.endswith(('wav', 'mp3')):
-        noise_path = os.path.join(noise_folder, f)
-        print(noise_path)
-        sequence, sr = librosa.load(noise_path, sr=None)
-        # Define the duration to slice (1 minute)
-        duration = 1 * 10 * sr + 5* sr # 1 minute in milliseconds
+            # Slice the audio to the first minute
+            sequence = sequence[:duration]
+            denoiser = DenoiserPCA(threshold=threshold)
+            denoised = denoiser.denoise(sequence, 200)
 
-        # Slice the audio to the first minute
-        sequence = sequence[5* sr:duration]
-        denoiser = DenoiserPCA(threshold=threshold)
-        denoised = denoiser.denoise(sequence, 500)
-        
-        denoised_path = os.path.join(raw_folder, f.replace('noise', 'raw'))
-        raw, sr = librosa.load(denoised_path, sr=None)
-        raw = raw[5* sr:duration]
+            denoised_path = os.path.join(raw_folder, f)
+            raw, sr = librosa.load(denoised_path, sr=None)
+            raw = raw[:duration]
 
-        write(f"./{method}_denoised/{f}", sr, denoised, True)
-        write(f"./{method}_noise/{f}", sr, sequence, True)
-        write(f"./{method}_raw/{f}", sr, raw, True)
-        
-        denoised, sr_A = librosa.load(f"./{method}_denoised/{f}", sr=None)
-        raw, sr_A = librosa.load(f"./{method}_raw/{f}", sr=None)
-        
-        
-        snr = SNR(raw, denoised)
-        
-        
-        # Compute the FFT of each signal
-        from scipy.fft import fft, fftfreq
-        denoised_fft = fft(denoised)
-        raw_fft = fft(raw)
+            write(f"./{method}_denoised/{f}", sr, denoised, True)
+            write(f"./{method}_noise/{f}", sr, sequence, True)
+            write(f"./{method}_raw/{f}", sr, raw, True)
 
-        denoised_fft_magnitude = np.abs(denoised_fft[:len(denoised_fft)//2])
-        raw_fft_magnitude = np.abs(raw_fft[:len(raw_fft)//2])
-        from scipy.spatial.distance import cosine
-        cos_sim = 1 - cosine(denoised_fft_magnitude, raw_fft_magnitude)
-        
-        correlation = np.corrcoef(denoised, raw)[0, 1]
-        
-        pesq_score = pesq(denoised, raw, sr_A)
-        
-        data.append({"file_raw": f"./{method}_raw/{f}", 
-                     "file_denoised": f"./{method}_denoised/{f}", 
-                     "method": method, 
-                     "threshold": threshold, 
-                     "SNR": snr, 'pesq_score': pesq_score, "cos Spectrum": cos_sim, 'correlation': correlation})
-df =  pd.DataFrame(data)
+            denoised, sr_A = librosa.load(f"./{method}_denoised/{f}", sr=None)
+            raw, sr_A = librosa.load(f"./{method}_raw/{f}", sr=None)
+
+
+            snr = SNR(raw, denoised)
+
+
+            # Compute the FFT of each signal
+            from scipy.fft import fft, fftfreq
+            denoised_fft = fft(denoised)
+            raw_fft = fft(raw)
+
+            denoised_fft_magnitude = np.abs(denoised_fft[:len(denoised_fft)//2])
+            raw_fft_magnitude = np.abs(raw_fft[:len(raw_fft)//2])
+            from scipy.spatial.distance import cosine
+            cos_sim = 1 - cosine(denoised_fft_magnitude, raw_fft_magnitude)
+
+            correlation = np.corrcoef(denoised, raw)[0, 1]
+
+            pesq_score = pesq(denoised, raw, sr_A)
+
+            data.append({"file_raw": f"./{method}_raw/{f}", 
+                         "file_denoised": f"./{method}_denoised/{f}", 
+                         "method": method, 
+                         "threshold": threshold, 
+                         "SNR": snr, 'pesq_score': pesq_score, "cos Spectrum": cos_sim, 'correlation': correlation})
+    df =  pd.DataFrame(data)
+    df.to_csv(f"{method}_{str(threshold).replace('.','')}_rain.csv", index=False)
+
+
+### TRAFFIC ###
+import pandas as pd
+import os
+noise_folder = "noise_traffic/"
+raw_folder =  "clean_traffic/"
+data = []
+method = 'pca'
+for threshold in [0.01]:
+    threshold = round(threshold,3)
+    print(threshold)
+    for f in sorted(os.listdir(noise_folder))[:20]:
+        if f.endswith(('wav', 'mp3')):
+            noise_path = os.path.join(noise_folder, f)
+            print(noise_path)
+            sequence, sr = librosa.load(noise_path, sr=None)
+            # Define the duration to slice (1 minute)
+            duration = 2 * 10 * sr # 10s in milliseconds
+
+            # Slice the audio to the first minute
+            sequence = sequence[:duration]
+            denoiser = DenoiserPCA(threshold=threshold)
+            denoised = denoiser.denoise(sequence, 200)
+
+            denoised_path = os.path.join(raw_folder, f)
+            raw, sr = librosa.load(denoised_path, sr=None)
+            raw = raw[:duration]
+
+            write(f"./{method}_denoised/{f}", sr, denoised, True)
+            write(f"./{method}_noise/{f}", sr, sequence, True)
+            write(f"./{method}_raw/{f}", sr, raw, True)
+
+            denoised, sr_A = librosa.load(f"./{method}_denoised/{f}", sr=None)
+            raw, sr_A = librosa.load(f"./{method}_raw/{f}", sr=None)
+
+
+            snr = SNR(raw, denoised)
+
+
+            # Compute the FFT of each signal
+            from scipy.fft import fft, fftfreq
+            denoised_fft = fft(denoised)
+            raw_fft = fft(raw)
+
+            denoised_fft_magnitude = np.abs(denoised_fft[:len(denoised_fft)//2])
+            raw_fft_magnitude = np.abs(raw_fft[:len(raw_fft)//2])
+            from scipy.spatial.distance import cosine
+            cos_sim = 1 - cosine(denoised_fft_magnitude, raw_fft_magnitude)
+
+            correlation = np.corrcoef(denoised, raw)[0, 1]
+
+            pesq_score = pesq(denoised, raw, sr_A)
+
+            data.append({"file_raw": f"./{method}_raw/{f}", 
+                         "file_denoised": f"./{method}_denoised/{f}", 
+                         "method": method, 
+                         "threshold": threshold, 
+                         "SNR": snr, 'pesq_score': pesq_score, "cos Spectrum": cos_sim, 'correlation': correlation})
+    df =  pd.DataFrame(data)
+    df.to_csv(f"{method}_{str(threshold).replace('.','')}_traffic.csv", index=False)
+
+### WORKING PLACE ###
+import pandas as pd
+import os
+noise_folder = "noise_working place//"
+raw_folder =  "clean_working place/"
+data = []
+method = 'pca'
+for threshold in [0.01]:
+    threshold = round(threshold,3)
+    print(threshold)
+    for f in sorted(os.listdir(noise_folder))[:20]:
+        if f.endswith(('wav', 'mp3')):
+            noise_path = os.path.join(noise_folder, f)
+            print(noise_path)
+            sequence, sr = librosa.load(noise_path, sr=None)
+            # Define the duration to slice (1 minute)
+            duration = 2 * 10 * sr # 10s in milliseconds
+
+            # Slice the audio to the first minute
+            sequence = sequence[:duration]
+            denoiser = DenoiserPCA(threshold=threshold)
+            denoised = denoiser.denoise(sequence, 200)
+
+            denoised_path = os.path.join(raw_folder, f)
+            raw, sr = librosa.load(denoised_path, sr=None)
+            raw = raw[:duration]
+
+            write(f"./{method}_denoised/{f}", sr, denoised, True)
+            write(f"./{method}_noise/{f}", sr, sequence, True)
+            write(f"./{method}_raw/{f}", sr, raw, True)
+
+            denoised, sr_A = librosa.load(f"./{method}_denoised/{f}", sr=None)
+            raw, sr_A = librosa.load(f"./{method}_raw/{f}", sr=None)
+
+
+            snr = SNR(raw, denoised)
+
+
+            # Compute the FFT of each signal
+            from scipy.fft import fft, fftfreq
+            denoised_fft = fft(denoised)
+            raw_fft = fft(raw)
+
+            denoised_fft_magnitude = np.abs(denoised_fft[:len(denoised_fft)//2])
+            raw_fft_magnitude = np.abs(raw_fft[:len(raw_fft)//2])
+            from scipy.spatial.distance import cosine
+            cos_sim = 1 - cosine(denoised_fft_magnitude, raw_fft_magnitude)
+
+            correlation = np.corrcoef(denoised, raw)[0, 1]
+
+            pesq_score = pesq(denoised, raw, sr_A)
+
+            data.append({"file_raw": f"./{method}_raw/{f}", 
+                         "file_denoised": f"./{method}_denoised/{f}", 
+                         "method": method, 
+                         "threshold": threshold, 
+                         "SNR": snr, 'pesq_score': pesq_score, "cos Spectrum": cos_sim, 'correlation': correlation})
+    df =  pd.DataFrame(data)
+    df.to_csv(f"{method}_{str(threshold).replace('.','')}_working place.csv", index=False)
